@@ -11,7 +11,9 @@ class OpenAiStreamController(http.Controller):
     def ai_stream(self, **kwargs):
         # 獲取原始 POST 數據
         body = json.loads(request.httprequest.data)
+        pre_content = body.get('pre_content', '')
         user_input = body.get('message', '')
+        post_content = body.get('post_content', '')
 
         # ir.config_parameter
         api_key = request.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -38,13 +40,26 @@ class OpenAiStreamController(http.Controller):
 
         rag_inject_content = json.dumps(rag_inject, ensure_ascii=False)
 
+        def system_json(v):
+            return {"role": "system", "content": v}
+
         def generate():
+            messages = []
+
+            if pre_content != "":
+                messages.append(system_json(pre_content))
+
+            if rag_inject_content != "":
+                messages.append(system_json("Please use the following information as a basis when responding: \n" + rag_inject_content + "\n If I ask about images, I should respond with the image ID from the JSON I just provided, in the format {{%%img:id%%}}."))
+
+            messages.append({"role": "user", "content": user_input})
+
+            if post_content != "":
+                messages.append(system_json(post_content))
+
             response = client.chat.completions.create(
                 model=model_name,
-                messages=[
-                    {"role": "system", "content": "Please use the following information as a basis when responding: \n" + rag_inject_content + "\n If I ask about images, I should respond with the image ID from the JSON I just provided, in the format {{%%img:id%%}}."},
-                    {"role": "user", "content": user_input}
-                ],
+                messages=messages,
                 stream=True
             )
             for chunk in response:
