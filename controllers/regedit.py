@@ -42,7 +42,7 @@ class OpenAiStreamController(http.Controller):
             response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "Please use the following information as a basis when responding: \n" + rag_inject_content},
+                    {"role": "system", "content": "Please use the following information as a basis when responding: \n" + rag_inject_content + "\n If I ask about images, I should respond with the image ID from the JSON I just provided, in the format {{%%img:id%%}}."},
                     {"role": "user", "content": user_input}
                 ],
                 stream=True
