@@ -74,3 +74,13 @@ class OpenAiStreamController(http.Controller):
     def ai_page(self):
         content = self._get_html_template()
         return request.make_response(content, [('Content-Type', 'text/html')])
+
+    @http.route('/image/<int:rec_id>', type='http', auth='public', methods=['GET'])
+    def get_rag_image(self, rec_id, **kwargs):
+        record = request.env['rag.data'].sudo().browse(rec_id)
+
+        if not record.exists() or not record.image:
+            # 404
+            return request.not_found()
+
+        return request.env['ir.binary']._get_stream_from(record, 'image').get_response()
