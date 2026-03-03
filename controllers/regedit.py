@@ -16,7 +16,7 @@ class OpenAiStreamController(http.Controller):
         # ir.config_parameter
         api_key = request.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         # todo: provider select
-        # todo: model select
+        model_name = request.env['ir.config_parameter'].sudo().get_param('openai.model_name')
         client = OpenAI(api_key=api_key)
 
         # todo: post filter
@@ -40,7 +40,7 @@ class OpenAiStreamController(http.Controller):
 
         def generate():
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model=model_name,
                 messages=[
                     {"role": "system", "content": "Please use the following information as a basis when responding: \n" + rag_inject_content + "\n If I ask about images, I should respond with the image ID from the JSON I just provided, in the format {{%%img:id%%}}."},
                     {"role": "user", "content": user_input}
