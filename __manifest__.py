@@ -4,8 +4,10 @@
     'demo': [],
     'depends': ['base', 'web'],
     'data': [
+        'security/ir.model.access.csv',
+        'views/chat_menu.xml',
         'views/res_config_settings_views.xml',
-        'views/rag_llm.xml',
+        'views/rag_views.xml',
     ],
     'qweb': [],
     'installable': True,

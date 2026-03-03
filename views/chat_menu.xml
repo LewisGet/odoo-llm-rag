@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_ai_chat_window" model="ir.actions.act_url">
+        <field name="name">LLM</field>
+        <field name="url">/ai/chat</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_rag_data" model="ir.actions.act_window">
+        <field name="name">RAG 資料庫</field>
+        <field name="res_model">rag.data</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_ai_root" name="AI 中心" web_icon="base,static/description/icon.png" sequence="1"/>
+
+    <menuitem id="menu_ai_chat" name="聊天視窗" parent="menu_ai_root" action="action_ai_chat_window" sequence="10"/>
+    <menuitem id="menu_rag_data_sub" name="數據管理" parent="menu_ai_root" action="action_rag_data" sequence="20"/>
+</odoo>

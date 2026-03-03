@@ -1,3 +1,2 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_res_config_settings_openai,access_res_config_settings_openai,model_res_config_settings,,1,1,1,1
-
+access_rag_data_user,access.rag.data.user,model_rag_data,base.group_user,1,1,1,1
