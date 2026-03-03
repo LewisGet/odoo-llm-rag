@@ -19,10 +19,32 @@ class OpenAiStreamController(http.Controller):
         # todo: model select
         client = OpenAI(api_key=api_key)
 
+        # todo: post filter
+        rag_records = request.env['rag.data'].sudo().search([('active', '=', True)])
+
+        rag_inject = []
+
+        for r in rag_records:
+            _tmp_r = dict()
+            if r.image:
+                _tmp_r["image_id"] = r.id
+            if r.image:
+                _tmp_r["image_name"] = r.name
+            if r.url:
+                _tmp_r["url"] = r.url
+            if r.content:
+                _tmp_r["content"] = r.content
+            rag_inject.append(_tmp_r)
+
+        rag_inject_content = json.dumps(rag_inject, ensure_ascii=False)
+
         def generate():
             response = client.chat.completions.create(
                 model="gpt-4o",
-                messages=[{"role": "user", "content": user_input}],
+                messages=[
+                    {"role": "system", "content": "Please use the following information as a basis when responding: \n" + rag_inject_content},
+                    {"role": "user", "content": user_input}
+                ],
                 stream=True
             )
             for chunk in response:
