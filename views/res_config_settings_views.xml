@@ -1,0 +1,47 @@
+<odoo>
+    <record id="action_openai_config_settings" model="ir.actions.act_window">
+        <field name="name">設定 OpenAI</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'your_module_name'}</field> </record>
+
+    <menuitem id="menu_ai_configuration"
+              name="配置"
+              parent="menu_ai_root"
+              sequence="100"
+              groups="base.group_system"/>
+
+    <menuitem id="menu_openai_settings"
+              name="API 設定"
+              parent="menu_ai_configuration"
+              action="action_openai_config_settings"
+              sequence="10"/>
+
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.openai</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="OpenAI 設定" string="OpenAI" name="openai_integration">
+                    <block title="API 憑證配置">
+                        <setting help="在此輸入您的 OpenAI API Key">
+                            <div class="content-group">
+                                <div class="mt16">
+                                    <label for="openai_api_key" string="API Key"/>
+                                    <field name="openai_api_key" password="True"/>
+                                </div>
+                                <div class="mt8">
+                                    <label for="openai_model_name" string="預設模型"/>
+                                    <field name="openai_model_name"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>
