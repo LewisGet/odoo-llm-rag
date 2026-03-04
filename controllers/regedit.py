@@ -79,6 +79,30 @@ class OpenAiStreamController(http.Controller):
             ]
         )
 
+    @http.route('/ai/tts', type='http', auth='user', methods=['POST'], csrf=False)
+    def ai_tts(self, **kwargs):
+        body = json.loads(request.httprequest.data)
+        text = body.get('text', '')
+
+        api_key = request.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        client = OpenAI(api_key=api_key)
+
+        response = client.audio.speech.create(
+            model="tts-1",
+
+            # todo: select voice in config or post parameter list[alloy, echo, fable, onyx, nova, shimmer]
+            voice="alloy",
+            input=text
+        )
+
+        return request.make_response(
+            response.content,
+            headers=[
+                ('Content-Type', 'audio/mpeg'),
+                ('Content-Length', len(response.content))
+            ]
+        )
+
     def _get_html_template(self):
         addon_path = os.path.dirname(os.path.dirname(__file__))
         file_path = os.path.join(addon_path, 'static', 'html', 'chat.html')
