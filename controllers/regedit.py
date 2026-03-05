@@ -86,24 +86,95 @@ class OpenAiStreamController(http.Controller):
         body = json.loads(request.httprequest.data)
         text = body.get('text', '')
 
-        api_key = request.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-        client = OpenAI(api_key=api_key)
+        params = request.env['ir.config_parameter'].sudo()
+        provider = params.get_param('tts.provider', 'openai')
 
+        provider_callback = {
+            'openai': self._get_openai_tts,
+            'google': self._get_google_tts,
+            'elevenlabs': self._get_elevenlabs_tts,
+        }
+
+        tts_provider_function = provider_callback.get(provider, self._get_openai_tts)
+        return tts_provider_function(text, params)
+
+    def _get_openai_tts(self, text, params):
+        """ OpenAI TTS 實作 """
+        api_key = params.get_param('openai.api_key')
+        if not api_key:
+            raise ValueError("OpenAI API Key 尚未設定")
+
+        client = OpenAI(api_key=api_key)
         response = client.audio.speech.create(
             model="tts-1",
+            voice="ash",  # 預設中性金屬音
+            input=text,
+        )
+        return response.content
 
-            # todo: select voice in config or post parameter list[alloy, echo, fable, onyx, nova, shimmer]
-            voice="alloy",
-            input=text
+    def _get_google_tts(self, text, params):
+        from google.cloud import texttospeech
+        from google.api_core.client_options import ClientOptions
+
+
+        addon_path = os.path.dirname(os.path.dirname(__file__))
+        key_path = os.path.join(addon_path, 'keys', 'gcp_auth.json')
+        client = texttospeech.TextToSpeechClient.from_service_account_file(key_path)
+
+        # prompt 參數控制語氣
+        synthesis_input = texttospeech.SynthesisInput(
+            text=text,
+            prompt="Happy tone."
         )
 
-        return request.make_response(
-            response.content,
-            headers=[
-                ('Content-Type', 'audio/mpeg'),
-                ('Content-Length', len(response.content))
+        voice = texttospeech.VoiceSelectionParams(
+            language_code="cmn-TW",  # 確保中文發音
+            name="Kore",
+            model_name="gemini-2.5-pro-tts"
+        )
+
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3
+        )
+
+        response = client.synthesize_speech(
+            input=synthesis_input,
+            voice=voice,
+            audio_config=audio_config
+        )
+
+        return response.audio_content
+
+    def _get_elevenlabs_tts(self, text, params):
+        from elevenlabs.client import ElevenLabs
+
+        api_key = params.get_param('elevenlabs.api_key')
+        if not api_key:
+            raise ValueError("ElevenLabs API Key 尚未設定")
+
+        client = ElevenLabs(api_key=api_key)
+
+        audio_generator = client.text_to_dialogue.convert(
+            inputs=[
+                {
+                    "text": text,
+                    "voice_id": "9BWtsMINqrJLrRacOk9x", # 可替換為 Odoo 設定檔中的值
+                }
             ]
         )
+
+        if not isinstance(audio_generator, bytes):
+            audio_generator = b"".join(audio_generator)
+
+        # 這裡就是關鍵的 Headers 修正
+        headers = [
+            ('Content-Type', 'audio/mpeg'),
+            ('Content-Length', str(len(audio_generator))),  # 必須精準告知長度
+            ('Accept-Ranges', 'none'),  # 【核心】告訴瀏覽器：別試圖分段讀取
+            ('Cache-Control', 'no-cache'),
+        ]
+
+        return request.make_response(audio_generator, headers=headers)
 
     def _get_html_template(self):
         addon_path = os.path.dirname(os.path.dirname(__file__))
