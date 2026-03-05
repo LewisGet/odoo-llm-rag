@@ -29,3 +29,9 @@ class ResConfigSettings(models.TransientModel):
         ('aws', 'AWS Polly'),
         ('elevenlabs', 'ElevenLabs')
     ], string="TTS 服務商", default='openai', config_parameter='tts.provider')
+
+    google_tts_model = fields.Selection([
+        ('gemini-2.5-pro-tts', 'gemini-2.5-pro-tts'),
+        ('gemini-2.5-flash-tts', 'gemini-2.5-flash-tts'),
+        ('cmn-TW-Standard-A', 'cmn-TW-Standard-A'),
+    ], string="googel tts 模型", default='gemini-2.5-flash-tts', config_parameter='google.tts_model')

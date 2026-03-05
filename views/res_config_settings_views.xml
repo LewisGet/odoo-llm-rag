@@ -57,6 +57,8 @@
                                 <div class="mt16">
                                     <label for="google_api_key" string="Google API Key"/>
                                     <field name="google_api_key" password="True" class="w-100"/>
+                                    <label for="google_tts_model" string="TTS 合成模型"/>
+                                    <field name="google_tts_model" class="w-75"/>
                                 </div>
                             </div>
                         </setting>

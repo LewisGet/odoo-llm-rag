@@ -121,17 +121,26 @@ class OpenAiStreamController(http.Controller):
         key_path = os.path.join(addon_path, 'keys', 'gcp_auth.json')
         client = texttospeech.TextToSpeechClient.from_service_account_file(key_path)
 
-        # prompt 參數控制語氣
-        synthesis_input = texttospeech.SynthesisInput(
-            text=text,
-            prompt="Happy tone."
-        )
+        tts_model = params.get_param('google.tts_model')
 
-        voice = texttospeech.VoiceSelectionParams(
-            language_code="cmn-TW",  # 確保中文發音
-            name="Kore",
-            model_name="gemini-2.5-pro-tts"
-        )
+        synthesis_config = dict()
+        synthesis_config['text'] = text
+        synthesis_config['prompt'] = "Happy tone." # 語氣
+
+        language_code = "cmn-TW"
+
+        input_voice = dict()
+        input_voice['language_code'] = language_code
+        input_voice['name'] = "Kore"
+        input_voice['model_name'] = tts_model
+
+        # wavenet
+        if tts_model == "cmn-TW-Standard-A":
+            del synthesis_config['prompt']
+            del input_voice['name']
+
+        synthesis_input = texttospeech.SynthesisInput(**synthesis_config)
+        voice = texttospeech.VoiceSelectionParams(**input_voice)
 
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.MP3
