@@ -4,6 +4,8 @@ import json
 from openai import OpenAI
 import os
 
+from jinja2 import Environment, FileSystemLoader
+
 
 class OpenAiStreamController(http.Controller):
 
@@ -105,9 +107,10 @@ class OpenAiStreamController(http.Controller):
 
     def _get_html_template(self):
         addon_path = os.path.dirname(os.path.dirname(__file__))
-        file_path = os.path.join(addon_path, 'static', 'html', 'chat.html')
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
+        template_dir = os.path.join(addon_path, 'static')
+        env = Environment(loader=FileSystemLoader(template_dir))
+
+        return env.get_template('html/chat.html').render()
 
     @http.route('/ai/chat', type='http', auth='public')
     def ai_page(self):
