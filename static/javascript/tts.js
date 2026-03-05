@@ -1,58 +1,71 @@
 // tts
 const ttsEngine = {
-    sentenceBuffer: "",     // 收集尚未成為完整句子的字元
-    audioQueue: [],         // 存放待播放的音訊 Blob URL
-    isPlaying: false,       // 標記目前是否正在播放音訊
+    sentenceBuffer: "",
+    sentenceCount: 0,       // 用來標記句子的序號 (索引)
+    audioCache: {},         // 【核心】：存放已下載好的 Blob URL，Key 是序號
+    nextIndexToPlay: 0,     // 目前該播放哪一個序號的句子
+    isPlaying: false,       // 播放器狀態鎖
+    currentAudio: null,     // 供中斷使用
 
-    // 定義「斷句」的標點符號 (可依需求增減)
     punctuationRegex: /([。！？.!?\n]+)/,
 
-    /**
-     * 接收串流進來的文字，負責斷句
-     */
+    reset: function() {
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio = null;
+        }
+        // 清放快取中的所有 URL，避免記憶體洩漏
+        Object.values(this.audioCache).forEach(url => URL.revokeObjectURL(url));
+
+        this.sentenceBuffer = "";
+        this.sentenceCount = 0;
+        this.audioCache = {};
+        this.nextIndexToPlay = 0;
+        this.isPlaying = false;
+    },
+
     feedText: function(chunk) {
         this.sentenceBuffer += chunk;
-
-        // 檢查緩衝區內是否有完整的句子
         const parts = this.sentenceBuffer.split(this.punctuationRegex);
 
-        // 如果 parts 長度 > 1，代表至少找到一個標點符號
         if (parts.length > 1) {
-            // 迴圈處理除了最後一個未完成片段以外的所有句子
-            // i += 2 是因為 split 會保留 capture group (標點符號本身)
             for (let i = 0; i < parts.length - 1; i += 2) {
                 const sentence = (parts[i] + (parts[i+1] || "")).trim();
                 if (sentence.length > 0) {
-                    this.fetchTTS(sentence); // 送去取語音
+                    // 【關鍵】：立刻發送 Request，並帶上它應有的序號
+                    this.fetchAndCache(sentence, this.sentenceCount);
+                    this.sentenceCount++;
                 }
             }
-            // 剩下的未完成片段放回 buffer
             this.sentenceBuffer = parts[parts.length - 1];
         }
     },
 
-    /**
-     * 當 SSE 串流完全結束時呼叫，強制把剩下的零碎文字也念出來
-     */
     flush: function() {
         const sentence = this.sentenceBuffer.trim();
         if (sentence.length > 0) {
-            this.fetchTTS(sentence);
+            this.fetchAndCache(sentence, this.sentenceCount);
+            this.sentenceCount++;
         }
-        this.sentenceBuffer = ""; // 清空
+        this.sentenceBuffer = "";
     },
 
     /**
-     * 呼叫後端 API 獲取音訊 Blob
+     * 【並發下載】：不管別人，自己去下載並存入 Cache
      */
-    fetchTTS: async function(text) {
-        // 過濾掉標記語言，防止 TTS 念出亂碼
+    fetchAndCache: async function(text, index) {
         {% raw %}
         const cleanText = text.replace(/\{\{%%img:[^%]+%%\}\}/g, '')
-                              .replace(/https?:\/\/[^\s]+/g, '');
+                              .replace(/https?:\/\/[^\s]+/g, '')
+                              .replace(/[*#`]/g, '');
         {% endraw %}
 
-        if (!cleanText.trim()) return; // 如果清理後沒文字了就略過
+        if (!cleanText.trim()) {
+            // 如果是空句子，也要佔個位子讓播放器跳過
+            this.audioCache[index] = "SKIP";
+            this.tryPlay();
+            return;
+        }
 
         try {
             const response = await fetch('/ai/tts', {
@@ -61,54 +74,58 @@ const ttsEngine = {
                 body: JSON.stringify({ text: cleanText })
             });
 
-            if (!response.ok) throw new Error("TTS Request failed");
+            if (!response.ok) throw new Error("TTS failed");
 
             const blob = await response.blob();
-            const audioUrl = URL.createObjectURL(blob);
+            // 下載完成，存入對應的序號位子
+            this.audioCache[index] = URL.createObjectURL(blob);
 
-            // 將取回的音訊推入隊列
-            this.audioQueue.push(audioUrl);
-            this.playNext(); // 嘗試播放
+            // 下載完任何一個，都嘗試驅動播放器
+            this.tryPlay();
 
         } catch (error) {
-            console.error("TTS 獲取失敗:", error);
+            console.error(`Index ${index} 下載失敗`, error);
+            this.audioCache[index] = "SKIP"; // 失敗也佔位，避免後面的被卡死
+            this.tryPlay();
         }
     },
 
     /**
-     * 播放隊列管理，確保音訊依序播放不重疊
+     * 【順序播放】：檢查「下一個該播的」是否已經在 Cache 裡了
      */
-    playNext: function() {
-        if (this.isPlaying || this.audioQueue.length === 0) return;
+    tryPlay: function() {
+        // 如果正在播，或者「下一個要播的」還沒下載完，就繼續等
+        if (this.isPlaying || !this.audioCache[this.nextIndexToPlay]) return;
 
         this.isPlaying = true;
-        const currentAudioUrl = this.audioQueue.shift();
-        const audio = new Audio(currentAudioUrl);
+        const currentData = this.audioCache[this.nextIndexToPlay];
 
-        audio.onended = () => {
-            this.isPlaying = false;
-            URL.revokeObjectURL(currentAudioUrl); // 釋放記憶體，減少實體耗損
-            this.playNext(); // 播完這句，立刻檢查有沒有下一句
+        // 處理空句子或失敗的情況
+        if (currentData === "SKIP") {
+            this.finalizeStep();
+            return;
+        }
+
+        this.currentAudio = new Audio(currentData);
+        this.currentAudio.onended = () => {
+            URL.revokeObjectURL(currentData);
+            this.finalizeStep();
         };
 
-        audio.onerror = () => {
-            console.error("音訊播放錯誤");
-            this.isPlaying = false;
-            this.playNext();
+        this.currentAudio.onerror = () => {
+            this.finalizeStep();
         };
 
-        audio.play().catch(e => {
-            console.warn("自動播放被瀏覽器阻擋:", e);
-            this.isPlaying = false;
-        });
+        this.currentAudio.play().catch(() => this.finalizeStep());
+    },
+
+    finalizeStep: function() {
+        delete this.audioCache[this.nextIndexToPlay]; // 清理已播完的快取
+        this.nextIndexToPlay++;                       // 指向下一句
+        this.isPlaying = false;
+        this.currentAudio = null;
+        this.tryPlay();                               // 遞迴嘗試播下一句
     }
-};
-
-// tts hook
-ttsEngine.reset = function() {
-    this.sentenceBuffer = "";
-    this.audioQueue = [];
-    this.isPlaying = false;
 };
 
 // 1. 訂閱「發送前」事件：清空上一句還沒念完的語音
