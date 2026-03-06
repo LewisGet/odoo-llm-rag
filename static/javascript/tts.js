@@ -132,6 +132,8 @@ const ttsEngine = {
 streamHooks.preExecute.push((context) => {
     console.log("Hook 觸發：準備接收問題...", context.prompt);
     ttsEngine.reset();
+    ttsEngine.feedText("你好，我了解您的意思了，讓我思考一下。");
+    ttsEngine.flush();
 });
 
 // 2. 訂閱「串流中」事件：將文字碎片餵給 TTS 引擎進行斷句
