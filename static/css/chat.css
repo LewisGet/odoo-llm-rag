@@ -1,0 +1,26 @@
+#recordButton {
+    /* 基礎狀態：平穩的能量 */
+    background-color: #4A90E2;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+
+    /* 漸變核心：當 class 改變時，顏色會在 0.5 秒內平滑移動 */
+    transition: background-color 0.5s ease, box-shadow 0.5s ease, transform 0.2s ease;
+}
+
+/* 錄音中狀態：觸發呼吸燈動畫 */
+#recordButton.recording {
+    background-color: #FF4B2B; /* 轉為警示紅 */
+    box-shadow: 0 0 15px rgba(255, 75, 43, 0.7);
+    animation: breathing 2s infinite ease-in-out;
+}
+
+/* 呼吸動畫邏輯：能量的週期性起伏 */
+@keyframes breathing {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; box-shadow: 0 0 25px rgba(255, 75, 43, 0.9); }
+    100% { transform: scale(1); opacity: 1; }
+}

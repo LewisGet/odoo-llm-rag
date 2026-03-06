@@ -10,6 +10,7 @@
         #chat-window { height: 70vh; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; }
         .typing { font-style: italic; color: #6c757d; }
         .media-container { max-width: 100%; margin-top: 0.5rem; }
+        {% include 'css/chat.css' %}
     </style>
 </head>
 <body class="bg-light">
@@ -27,6 +28,7 @@
                     <div class="card-footer bg-white p-3">
                         <div class="input-group">
                             <input type="text" id="userInput" class="form-control" placeholder="請輸入問題..." aria-label="Recipient's username">
+                            <button class="btn btn-primary" type="button" id="recordButton">語音輸入</button>
                             <button class="btn btn-primary" type="button" id="sendBtn">傳送</button>
                         </div>
                     </div>
@@ -44,6 +46,8 @@
         {% include 'javascript/event.js' %}
         {% include 'javascript/tts.js' %}
         {% include 'javascript/chat.js' %}
+        {% include 'javascript/stt.js' %}
+        {% include 'javascript/ui.js' %}
     </script>
 </body>
 </html>
